@@ -36,6 +36,15 @@ def checkmaster(pswd):
         send(addr, fromusr(conf.Host_username, conf.Access_denied_message, direct=True))
         return False
 
+def usrlist():
+    ret = ''
+    for (ukey, uitem) in users.items():
+        data = ''
+        for (dkey, ditem) in uitem.items():
+            data += repr(dkey) + ' => ' + repr(ditem) + '\n'
+        ret += fromusr(ukey, data)
+    return fromusr(conf.Host_username, ret, direct=True)
+
 def intercept(addr, cmd, args=''):
     cmd = cmd.lower()[1:]
     if cmd == 'nick': users[addr]['nick'] = args
