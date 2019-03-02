@@ -1,6 +1,8 @@
 from socket import socket, AF_INET, SOCK_STREAM
 #import threading
 from pickle import dumps, loads
+import sys
+from argparse import ArgumentParser
 import queue
 from tkinter import *
 from tkinter.scrolledtext import ScrolledText
@@ -9,15 +11,16 @@ from time import sleep
 #from shelve import open as sopen
 #chats = open('contacts')
 win = Tk()
-thisport = askinteger('PyChat', 'Server Port Number', parent=win) or 1245
+thisport = (len(sys.argv) > 1 and int(sys.argv[1])) or 0
 share = queue.LifoQueue(2)
 
 def recievechat():
-    global state, sockobj
+    global state, sockobj, thisport
     if state == False:
         sockobj = socket(AF_INET, SOCK_STREAM)
         sockobj.setblocking(0)
         sockobj.bind(('', thisport))
+        thisport = sockobj.getsockname()[1]
         sockobj.listen(50)
         state = True
     while True:
