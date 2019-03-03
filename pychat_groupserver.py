@@ -39,13 +39,24 @@ def getusrname(user):
 def fromusr(user, message, direct=False):
     if not direct: ret = getusrname(user)
     else: ret = user
-    return ret + (':\n\t' + message.replace('\n', '\n\t').strip() if message else '\n')
+    return ret + (':\n\t' + message.replace('\n', '\n\t').strip() if message else '') + '\n'
 
 def send(user, message):
     sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sockobj.connect(user)
-    sockobj.send(dumps((conf.Port, message)))
-    sockobj.close()
+    for i in range(15):
+        try:
+            sockobj.connect(user)
+            sockobj.send(dumps((conf.Port, message)))
+            sockobj.close()
+        except ConnectionRefusedError:
+            print('user', user, 'refused the connection')
+            try:
+                if i >= 14: users[user]['err'] += 1
+            except KeyError: users[user]['err'] = 1
+        else:
+            users[user]['err'] = 0
+            break
+    if users[user]['err'] > 15: del users[user]
 
 def checkmaster(pswd):
     if pswd == conf.Master_password:
@@ -106,7 +117,7 @@ while True:
                 data += recv
             message = list(loads(data))
             addr = (addr[0], message[0])
-            if not addr in users: users[addr] = {}
+            if not addr in users: users[addr] = {'err': 0}
             if message[1].startswith('!'):
                 intercept(addr, *message[1].split(' ', 1))
                 print('command', repr(message[1]), 'sent by', addr)
