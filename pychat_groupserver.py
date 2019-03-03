@@ -3,16 +3,35 @@ import shelve
 import sys, os
 import traceback
 from time import sleep
-from pickle import dumps, loads
+from pickle import dumps, loads, dump, load
 try:                from imp       import reload
 except ImportError: from importlib import reload
+from argparse import ArgumentParser
 sys.path = [os.curdir] + sys.path
 import groupserver_settings as conf
 del sys.path[0]
 
+arghandle = ArgumentParser()
+arghandle.add_argument('-p', '--port', dest='Port', type=int, default=conf.Port,
+    help='The port for PyChat to use')
+arghandle.add_argument('-t', '--time', dest='Time_between_messages', type=int, metavar='Time', default=conf.Time_between_messages,
+    help='The amount of time between when users can send messages (in seconds)')
+arghandle.add_argument('-s', '--save', dest='Save_users_in_file', type=bool, metavar='True|False', default=conf.Save_users_in_file,
+    help='The port for PyChat to use')
+for (key, item) in vars(arghandle.parse_args()).items():
+    data = 'conf.' + key + ' = ' + repr(item)
+    print(data)
+    exec(data)
+
 users = {}
 if conf.Save_users_in_file:
-    users.update(shelve.open('Users'))
+    print('loading users...')
+    try: users = load(open('users.pkl', 'rb'))
+    except:
+        print('failed to load users')
+        users = {}
+    else:
+        print('users loaded')
 
 def getusrname(user):
     return str(users[user].get('nick', user))
@@ -20,7 +39,7 @@ def getusrname(user):
 def fromusr(user, message, direct=False):
     if not direct: ret = getusrname(user)
     else: ret = user
-    return ret + ':\n\t' + message.replace('\n', '\n\t').strip()
+    return ret + (':\n\t' + message.replace('\n', '\n\t').strip() if message else '\n')
 
 def send(user, message):
     sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -55,6 +74,8 @@ def intercept(addr, cmd, args=''):
         send(addr, fromusr(conf.Host_username, conf.Help_message, direct=True))
     elif cmd == 'join':
         send(addr, fromusr(conf.Host_username, conf.Join_message, direct=True))
+    elif cmd == 'usrlist':
+        send(addr, usrlist())
     elif cmd == 'updatesettings' and checkmaster(args): reload(conf)
     elif cmd == 'masterhelp' and checkmaster(args): return
     elif cmd == 'destroy' and checkmaster(args):
@@ -65,13 +86,11 @@ def intercept(addr, cmd, args=''):
 def end():
     print('quitting group server...')
     if conf.Save_users_in_file:
-        shelve.open('Users').update(users)
-        usershelve = shelve.open('Users')
-        for user in users:
-            usershelve[user] = users[user]
-            print('succesfully saved the data', repr(users[user]), 'for the user', getusrname(user))
-#from atexit import register
-#register(end)
+        print('saving users...')
+        dump(users, open('users.pkl', 'wb'))
+        print('saved users')
+from atexit import register
+register(end)
 
 while True:
     try:
@@ -96,8 +115,8 @@ while True:
                 for user in users:
                     send(user, message[1])
                     if user == addr: print('message sent by', getusrname(user))
-            sleep(conf.Time_between_messages + 0.2)
-    except BaseException as exc:
+            sleep(conf.Time_between_messages)
+    except Exception as exc:
         #print('Error in server:\nTraceback (most recent call last):\n%s\n%s' %
         #    (traceback.print_exc, exc.__class__.__name__))
         traceback.print_exc()

@@ -9,7 +9,7 @@ Master commands:
         Shuts down the server (not working)
 """
 
-# Password for modifying settings during runtime
+# Password for accessing master commands (always put immediately after the master command)
 Master_password = "LetMeIn!"
 
 # Message to show the user if they entered the wrong master password
@@ -29,6 +29,8 @@ Commands:
         Displays this help
     !join:
         Joins the server without having to send any messages
+    !usrlist:
+        Displays the list of users on the server
 """
 
 # Message to send the user when they join
