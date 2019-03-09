@@ -6,8 +6,11 @@ from argparse import ArgumentParser
 import queue
 from tkinter import *
 from tkinter.scrolledtext import ScrolledText
-from tkinter.simpledialog import askinteger
+from tkinter.filedialog   import askopenfilename, asksaveasfile
+from tkinter.messagebox   import showerror
 from time import sleep
+import gzip
+import os
 #from shelve import open as sopen
 #chats = open('contacts')
 win = Tk()
@@ -30,13 +33,20 @@ def recievechat():
         while True:
             recv = conn.recv(1024)
             if not recv: break
-            print('recieved', recv)
             data += recv
-        port, data = loads(data)
+        print('recieved', data[:1024])
+        port, *data = loads(data)
         win.title('PyChat - user: %s - message from: %s' % (thisport, (addr[0], port)))
         lbl['state'] = NORMAL
         lbl.delete('1.0', 'end-1c')
-        lbl.insert('1.0', data)
+        lbl.insert('1.0', data[0])
+        if len(data) > 2:
+            def save():
+                data[2] = gzip.decompress(data[2])
+                asksaveasfile('wb').write(data[2])
+            lbl.window_create('1.0', window=
+                Button(lbl, text=data[1], command=save))
+            lbl.insert('1.1', '\n')
         lbl['state'] = DISABLED
         break
     state = win.after(1000, recievechat)
@@ -49,15 +59,22 @@ def chat():
     i = 0
     while sockobj.connect_ex((host.get(), int(port.get()))) == 10061 and i < 15: i += 1
     if i < 15:
-        data = dumps((thisport, txt.get('1.0','end-1c')))
+        data = [thisport, txt.get('1.0','end-1c')]
+        value = attached.get()
+        if value:
+            data += [os.path.split(value)[1]]
+            try:
+                fi = open(value, 'rb').read()
+                data += [gzip.compress(fi)]
+                #attached.set('')
+            except:
+                showerror('PyChat', '%s occured while attaching your attachment.\n(The message was:\n%s\n)' % sys.exc_info()[:2])
+        data = dumps(data)
         sockobj.send(data)
-        print('sent    ', data)
+        print('sent    ', data[:1024])
     else:
         print('error sending')
-        lbl['state'] = NORMAL
-        lbl.delete('1.0', 'end-1c')
-        lbl.insert('1.0', 'An error occured while sending your message.')
-        lbl['state'] = DISABLED
+        showerror('PyChat', 'An error occured while sending your message.')
     sockobj.close()
     state = False
     recievechat()
@@ -83,6 +100,15 @@ if __name__ == "__main__":
     host.delete(0)
     host.insert(0, 'localhost')
     host.pack(side=RIGHT)
+    attached = StringVar()
+    attachlbl = Label(frm, textvariable=attached)
+    attachlbl.pack(side=LEFT)
+    def attach():
+        toattach = askopenfilename()
+        currattach = attached.get()
+        attached.set(toattach or currattach)
+    Button(frm, text='Attach', command=attach).pack(side=LEFT)
+    Button(frm, text='Remove Attachment', command=(lambda: attached.set(''))).pack(side=LEFT)
     lbl.pack(expand=YES, fill=BOTH)
     frm.pack(expand=YES, fill=X, side=BOTTOM)
     txt.pack(expand=YES, fill=BOTH)

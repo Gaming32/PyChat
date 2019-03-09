@@ -41,15 +41,17 @@ def fromusr(user, message, direct=False):
     else: ret = user
     return ret + (':\n\t' + message.replace('\n', '\n\t').strip() if message else '') + '\n'
 
-def send(user, message):
+from threading import Thread, Lock
+mutex = Lock()
+def _send(user, message, thread):
+    if not isinstance(message, list): message = [message]
     sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     for i in range(15):
         try:
             sockobj.connect(user)
-            sockobj.send(dumps((conf.Port, message)))
+            sockobj.send(dumps([conf.Port] + message))
             sockobj.close()
-        except ConnectionRefusedError:
-            print('user', user, 'refused the connection')
+        except (ConnectionRefusedError, TimeoutError):
             try:
                 if i >= 14: users[user]['err'] += 1
             except KeyError: users[user]['err'] = 1
@@ -57,6 +59,13 @@ def send(user, message):
             users[user]['err'] = 0
             break
     if users[user]['err'] > 15: del users[user]
+    mutex.acquire()
+    print('thread 0x%04x has exited' % thread.ident, file=sys.stderr)
+    mutex.release()
+def send(user, message):
+    thread = Thread(target=_send)
+    thread._args = (user, message, thread)
+    thread.start()
 
 def checkmaster(pswd):
     if pswd == conf.Master_password:
@@ -115,17 +124,21 @@ while True:
                 recv = conn.recv(1024)
                 if not recv: break
                 data += recv
-            message = list(loads(data))
+            message = loads(data)
             addr = (addr[0], message[0])
             if not addr in users: users[addr] = {'err': 0}
             if message[1].startswith('!'):
                 intercept(addr, *message[1].split(' ', 1))
+                mutex.acquire()
                 print('command', repr(message[1]), 'sent by', addr)
+                mutex.release()
             else:
                 message[1] = fromusr(addr, message[1])
                 for user in users:
-                    send(user, message[1])
+                    send(user, message[1:])
+                    mutex.acquire()
                     if user == addr: print('message sent by', getusrname(user))
+                    mutex.release()
             sleep(conf.Time_between_messages)
     except Exception as exc:
         #print('Error in server:\nTraceback (most recent call last):\n%s\n%s' %
