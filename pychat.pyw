@@ -8,9 +8,13 @@ from tkinter import *
 from tkinter.scrolledtext import ScrolledText
 from tkinter.filedialog   import askopenfilename, asksaveasfile
 from tkinter.messagebox   import showerror
+import time
 from time import sleep
 import gzip
 import os
+try: import win10toast
+except ImportError: win10toast = None
+else: win10toast = win10toast.ToastNotifier()
 #from shelve import open as sopen
 #chats = open('contacts')
 win = Tk()
@@ -37,16 +41,24 @@ def recievechat():
         print('recieved', data[:1024])
         port, *data = loads(data)
         win.title('PyChat - user: %s - message from: %s' % (thisport, (addr[0], port)))
+        #if win10toast: win10toast.show_toast('PyChat', data[0].split('\n')[0])
         lbl['state'] = NORMAL
-        lbl.delete('1.0', 'end-1c')
-        lbl.insert('1.0', data[0])
+        lbl.window_create(END, window=
+            Label(lbl, text="message recieved\nfrom %s\nat %s"
+            % ((addr[0], port), time.strftime('%I:%M %p')),
+            relief=SUNKEN, borderwidth=5))
+        lbl.insert(END, '\n')
         if len(data) > 2:
             def save():
-                data[2] = gzip.decompress(data[2])
-                asksaveasfile('wb').write(data[2])
-            lbl.window_create('1.0', window=
-                Button(lbl, text=data[1], command=save))
-            lbl.insert('1.1', '\n')
+                ungz = gzip.decompress(data[2])
+                fi = asksaveasfile('wb', initialfile=data[1])
+                if fi: fi.write(ungz)
+            lbl.window_create(END, window=
+                Button(lbl, text=data[1], command=save, borderwidth=5))
+            lbl.insert(END, '\n')
+        lbl.insert(END, data[0])
+        lbl.insert(END, '\n\n\n')
+        lbl.see(END)
         lbl['state'] = DISABLED
         break
     state = win.after(1000, recievechat)
@@ -62,13 +74,19 @@ def chat():
         data = [thisport, txt.get('1.0','end-1c')]
         value = attached.get()
         if value:
-            data += [os.path.split(value)[1]]
-            try:
-                fi = open(value, 'rb').read()
-                data += [gzip.compress(fi)]
-                #attached.set('')
-            except:
-                showerror('PyChat', '%s occured while attaching your attachment.\n(The message was:\n%s\n)' % sys.exc_info()[:2])
+            size = os.path.getsize(value)
+            print('attachment size =', size)
+            if size < 100000000:
+                data += [os.path.split(value)[1]]
+                try:
+                    fi = open(value, 'rb').read()
+                    data += [gzip.compress(fi)]
+                    attached.set('')
+                except:
+                    showerror('PyChat', '%s occured while attaching your attachment.\n(The message was:\n%s\n)' % sys.exc_info()[:2])
+            else:
+                showerror('PyChat', "Sorry file %s's size is greater than 100MB (it's size is %sMB)"
+                    % (os.path.split(value)[1], size // 1000000))
         data = dumps(data)
         sockobj.send(data)
         print('sent    ', data[:1024])
@@ -112,6 +130,15 @@ if __name__ == "__main__":
     lbl.pack(expand=YES, fill=BOTH)
     frm.pack(expand=YES, fill=X, side=BOTTOM)
     txt.pack(expand=YES, fill=BOTH)
+    menu = Menu(win)
+    filemenu = Menu(menu)
+    def clear():
+        lbl['state'] = NORMAL
+        lbl.delete('1.0', 'end-1c')
+        lbl['state'] = DISABLED
+    filemenu.add_command(label='Clear', command=clear)
+    menu.add_cascade(menu=filemenu, label='File')
+    win.config(menu=menu)
     state = False
     recievechat()
     win.mainloop()

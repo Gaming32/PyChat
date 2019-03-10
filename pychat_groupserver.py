@@ -2,6 +2,8 @@ import socket
 import shelve
 import sys, os
 import traceback
+import time
+import gzip
 from time import sleep
 from pickle import dumps, loads, dump, load
 try:                from imp       import reload
@@ -112,12 +114,12 @@ def end():
 from atexit import register
 register(end)
 
+sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sockobj.bind(('', conf.Port))
+sockobj.listen(conf.Message_backwash)
 while True:
     try:
         while True:
-            sockobj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sockobj.bind(('', conf.Port))
-            sockobj.listen(0)
             conn, addr = sockobj.accept()
             data = bytes()
             while True:
@@ -134,6 +136,11 @@ while True:
                 mutex.release()
             else:
                 message[1] = fromusr(addr, message[1])
+                if (len(message) > 3) and (len(message[3]) > (conf.Max_attachment_size * 1000000)):
+                    message[3] = gzip.compress((conf.Placeholder_attachment_text
+                        % dict(max=conf.Max_attachment_size, size=len(message[3]) / 1000000))
+                        .encode())
+                    message[2] = conf.Placeholder_attachment_filename
                 for user in users:
                     send(user, message[1:])
                     mutex.acquire()
