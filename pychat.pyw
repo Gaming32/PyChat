@@ -15,12 +15,17 @@ import os
 try: import win10toast
 except ImportError: win10toast = None
 else: win10toast = win10toast.ToastNotifier()
+try: import PIL.Image, PIL.ImageTk
+except ImportError: PIL = None
+import mimetypes
+import io
 #from shelve import open as sopen
 #chats = open('contacts')
 win = Tk()
 thisport = (len(sys.argv) > 1 and int(sys.argv[1])) or 0
 share = queue.LifoQueue(2)
 
+btnimg = []
 def recievechat():
     global state, sockobj, thisport
     if state == False:
@@ -53,8 +58,17 @@ def recievechat():
                 ungz = gzip.decompress(data[2])
                 fi = asksaveasfile('wb', initialfile=data[1])
                 if fi: fi.write(ungz)
-            lbl.window_create(END, window=
-                Button(lbl, text=data[1], command=save, borderwidth=5))
+            attbtn = Button(lbl, command=save, borderwidth=5)
+            ftype = mimetypes.guess_type(data[1])
+            if ftype[0] and ftype[0].startswith('image') and PIL:
+                img = PIL.Image.open(io.BytesIO(gzip.decompress(data[2])))
+                img.thumbnail((250, 250))
+                global btnimg
+                btnimg.append(PIL.ImageTk.PhotoImage(img))
+                attbtn['image'] = btnimg[len(btnimg) - 1]
+            else:
+                attbtn['text'] = data[1]
+            lbl.window_create(END, window=attbtn)
             lbl.insert(END, '\n')
         lbl.insert(END, data[0])
         lbl.insert(END, '\n\n\n')
