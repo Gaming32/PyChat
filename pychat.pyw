@@ -30,15 +30,16 @@ def recievechat():
     global state, sockobj, thisport
     if state == False:
         sockobj = socket(AF_INET, SOCK_STREAM)
-        sockobj.setblocking(0)
         sockobj.bind(('', thisport))
         thisport = sockobj.getsockname()[1]
         sockobj.listen(50)
         state = True
     while True:
+        sockobj.setblocking(0)
         try: conn, addr = sockobj.accept()
         except BlockingIOError: break
         data = bytes()
+        sockobj.setblocking(1)
         while True:
             recv = conn.recv(1024)
             if not recv: break
@@ -60,12 +61,12 @@ def recievechat():
                 if fi: fi.write(ungz)
             attbtn = Button(lbl, command=save, borderwidth=5)
             ftype = mimetypes.guess_type(data[1])
-            if ftype[0] and ftype[0].startswith('image') and PIL:
+            if ftype[0] and not ftype[1] and ftype[0].startswith('image') and PIL:
                 img = PIL.Image.open(io.BytesIO(gzip.decompress(data[2])))
                 img.thumbnail((250, 250))
                 global btnimg
                 btnimg.append(PIL.ImageTk.PhotoImage(img))
-                attbtn['image'] = btnimg[len(btnimg) - 1]
+                attbtn['image'] = btnimg[-1]
             else:
                 attbtn['text'] = data[1]
             lbl.window_create(END, window=attbtn)
@@ -103,6 +104,7 @@ def chat():
                     % (os.path.split(value)[1], size // 1000000))
         data = dumps(data)
         sockobj.send(data)
+        txt.delete('1.0', END)
         print('sent    ', data[:1024])
     else:
         print('error sending')
@@ -110,6 +112,27 @@ def chat():
     sockobj.close()
     state = False
     recievechat()
+
+def options():
+    def onFrameConfigure(canvas):
+        '''Reset the scroll region to encompass the inner frame'''
+        canvas.configure(scrollregion=canvas.bbox(ALL))
+    optwin = Toplevel()
+    optwin.title('PyChat Options')
+    scrollfrm = Frame(optwin)
+    canvas = Canvas(scrollfrm, borderwidth=0)
+    frame = Frame(canvas)
+    vsb = Scrollbar(scrollfrm, orient=VERTICAL, command=canvas.yview)
+    canvas.configure(yscrollcommand=vsb.set)
+    vsb.pack(side=RIGHT, fill=Y)
+    canvas.pack(side=LEFT, fill=BOTH, expand=True)
+    canvas.create_window((0, 0), window=frame, anchor=NW)
+    frame.bind("<Configure>", lambda event, canvas=canvas: onFrameConfigure(canvas))
+    scrollfrm.pack(side=TOP)
+    enterfrm = Frame(frame)
+    enterfrm.pack(side=TOP)
+    Button(enterfrm, text='Ok').pack(side=RIGHT)
+    Button(enterfrm, text='Cancel', command=optwin.destroy).pack(side=RIGHT)
 
 # def display():
 #     try: win.title(share.get_nowait())
@@ -121,6 +144,11 @@ if __name__ == "__main__":
     win.title('PyChat - user: %s' % str(thisport))
     lbl = ScrolledText(win, relief=SUNKEN, state=DISABLED,
         bg='SystemButtonFace', borderwidth=2, wrap=WORD)
+    def entsend(event):
+        if event.state == 8:
+            txt.delete('end-1c')
+            chat()
+    win.bind('<Return>', entsend)
     txt = ScrolledText(win, wrap=WORD)
     frm = Frame(win)
     Button(frm, text='Chat!', command=chat).pack(side=RIGHT)
@@ -150,7 +178,10 @@ if __name__ == "__main__":
         lbl['state'] = NORMAL
         lbl.delete('1.0', 'end-1c')
         lbl['state'] = DISABLED
-    filemenu.add_command(label='Clear', command=clear)
+    filemenu.add_command(label='Clear',   command=clear)
+    filemenu.add_command(label='Options', command=options)
+    filemenu.add_separator()
+    filemenu.add_command(label='Quit', command=win.quit)
     menu.add_cascade(menu=filemenu, label='File')
     win.config(menu=menu)
     state = False
