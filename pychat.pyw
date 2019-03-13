@@ -1,6 +1,6 @@
 from socket import socket, AF_INET, SOCK_STREAM
 #import threading
-from pickle import dumps, loads
+from pickle import dumps, loads, dump, load
 import sys
 from argparse import ArgumentParser
 import queue
@@ -22,7 +22,11 @@ import io
 #from shelve import open as sopen
 #chats = open('contacts')
 win = Tk()
-thisport = (len(sys.argv) > 1 and int(sys.argv[1])) or 0
+try: setdict = load(open('settings.pkl', 'rb'))
+except FileNotFoundError: setdict = {}
+try: thisport = setdict['port']
+except KeyError: thisport = 0
+thisport = (len(sys.argv) > 1 and int(sys.argv[1])) or thisport
 share = queue.LifoQueue(2)
 
 btnimg = []
@@ -113,10 +117,47 @@ def chat():
     state = False
     recievechat()
 
+biglen = 15
+def makeFormRow(parent, label, width=None, default='', browse=False, extend=False):
+    global biglen
+    if not width: width = biglen
+    width = max(width, len(label))
+    if width > biglen: biglen = width
+    var = StringVar()
+    var.set(default)
+    row = Frame(parent)
+    lab = Label(row, text=label, relief=RIDGE, width=width)
+    ent = Entry(row, relief=SUNKEN, textvariable=var)
+    row.pack(fill=X)                                  # uses packed row frames
+    lab.pack(side=LEFT)                               # and fixed-width labels
+    ent.pack(side=LEFT, expand=YES, fill=X)           # or use grid(row, col)
+    if browse:
+        btn = Button(row, text='browse...')
+        btn.pack(side=RIGHT)
+        if not extend:
+            btn.config(command=
+                 lambda: var.set(askopenfilename() or var.get()) )
+        else:
+            btn.config(command=
+                 lambda: var.set(var.get() + ' ' + askopenfilename()) )
+    return var
 def options():
+    global setdict
+    try: setdict
+    except NameError:
+        try: setdict = load(open('settings.pkl', 'rb'))
+        except FileNotFoundError: setdict = {}
     def onFrameConfigure(canvas):
         '''Reset the scroll region to encompass the inner frame'''
         canvas.configure(scrollregion=canvas.bbox(ALL))
+    #def onCanvasConfigure(canvas):
+    #    canvas.itemconfig(frmwin, width=canvas['width'])
+    def save():
+        global setdict
+        nonlocal vardict
+        setdict = {key: item[1](item[0].get()) for (key, item) in vardict.items()}
+        dump(setdict, open('settings.pkl', 'wb'))
+        optwin.destroy()
     optwin = Toplevel()
     optwin.title('PyChat Options')
     scrollfrm = Frame(optwin)
@@ -126,13 +167,17 @@ def options():
     canvas.configure(yscrollcommand=vsb.set)
     vsb.pack(side=RIGHT, fill=Y)
     canvas.pack(side=LEFT, fill=BOTH, expand=True)
-    canvas.create_window((0, 0), window=frame, anchor=NW)
-    frame.bind("<Configure>", lambda event, canvas=canvas: onFrameConfigure(canvas))
-    scrollfrm.pack(side=TOP)
+    frmwin = canvas.create_window((0, 0), window=frame, anchor=NW, width=canvas['width'])
+    frame .bind("<Configure>", lambda event, canvas=canvas: onFrameConfigure(canvas))
+    #canvas.bind("<Configure>", lambda event, canvas=canvas: onCanvasConfigure(canvas))
+    scrollfrm.pack(side=TOP, expand=YES, fill=BOTH)
+    vardict = dict(
+        port = (makeFormRow(frame, 'Server Port', default=thisport), int)
+    )
     enterfrm = Frame(frame)
-    enterfrm.pack(side=TOP)
-    Button(enterfrm, text='Ok').pack(side=RIGHT)
+    Button(enterfrm, text='Ok',     command=save)          .pack(side=RIGHT)
     Button(enterfrm, text='Cancel', command=optwin.destroy).pack(side=RIGHT)
+    enterfrm.pack(side=TOP, expand=YES, fill=X)
 
 # def display():
 #     try: win.title(share.get_nowait())
