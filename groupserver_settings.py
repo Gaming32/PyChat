@@ -1,12 +1,12 @@
 """
 Settings for PyChat's Group Server application
 Master commands:
-    !updatesettings:
+    /updatesettings:
         Reload the settings from this file
-    !masterhelp:
+    /masterhelp:
         Displays this help
-    !destroy:
-        Shuts down the server (not working)
+    /destroy:
+        Shuts down the server
 """
 
 # Password for accessing master commands (always put immediately after the master command)
@@ -21,15 +21,15 @@ Goodbye_message = "Goodbye"
 # Message to send the user when they run the help command
 Help_message = """
 Commands:
-    !nick:
+    /nick:
         Sets your display name
-    !leave:
+    /leave:
         Leaves the group server
-    !help:
+    /help:
         Displays this help
-    !join:
+    /join:
         Joins the server without having to send any messages
-    !usrlist:
+    /usrlist:
         Displays the list of users on the server
 """
 
@@ -64,5 +64,5 @@ Port = 1245
 # The amount of time between when users can send messages (in seconds)
 Time_between_messages = 0
 
-# Whether to save users in a file if the server gets rebooted (not working)
+# Whether to save users in a file if the server gets rebooted
 Save_users_in_file = True

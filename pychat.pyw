@@ -95,7 +95,7 @@ def chat():
         if value:
             size = os.path.getsize(value)
             print('attachment size =', size)
-            if size < 100000000:
+            if size < 134217728:
                 data += [os.path.split(value)[1]]
                 try:
                     fi = open(value, 'rb').read()
@@ -105,7 +105,7 @@ def chat():
                     showerror('PyChat', '%s occured while attaching your attachment.\n(The message was:\n%s\n)' % sys.exc_info()[:2])
             else:
                 showerror('PyChat', "Sorry file %s's size is greater than 100MB (it's size is %sMB)"
-                    % (os.path.split(value)[1], size // 1000000))
+                    % (os.path.split(value)[1], size // 1048576))
         data = dumps(data)
         sockobj.send(data)
         txt.delete('1.0', END)

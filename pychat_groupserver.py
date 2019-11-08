@@ -127,18 +127,19 @@ while True:
                 if not recv: break
                 data += recv
             message = loads(data)
+            message = list(message)
             addr = (addr[0], message[0])
             if not addr in users: users[addr] = {'err': 0}
-            if message[1].startswith('!'):
+            if message[1].startswith('/'):
                 intercept(addr, *message[1].split(' ', 1))
                 mutex.acquire()
                 print('command', repr(message[1]), 'sent by', addr)
                 mutex.release()
             else:
                 message[1] = fromusr(addr, message[1])
-                if (len(message) > 3) and (len(message[3]) > (conf.Max_attachment_size * 1000000)):
+                if (len(message) > 3) and (len(message[3]) > (conf.Max_attachment_size * 1048576)):
                     message[3] = gzip.compress((conf.Placeholder_attachment_text
-                        % dict(max=conf.Max_attachment_size, size=len(message[3]) / 1000000))
+                        % dict(max=conf.Max_attachment_size, size=len(message[3]) / 1048576))
                         .encode())
                     message[2] = conf.Placeholder_attachment_filename
                 for user in users:
