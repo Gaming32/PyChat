@@ -126,6 +126,7 @@ while True:
                 recv = conn.recv(1024)
                 if not recv: break
                 data += recv
+            conn.close()
             message = loads(data)
             message = list(message)
             addr = (addr[0], message[0])

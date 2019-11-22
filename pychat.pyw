@@ -30,6 +30,7 @@ thisport = (len(sys.argv) > 1 and int(sys.argv[1])) or thisport
 share = queue.LifoQueue(2)
 
 btnimg = []
+lastmsg = None
 def recievechat():
     global state, sockobj, thisport
     if state == False:
@@ -49,9 +50,10 @@ def recievechat():
             if not recv: break
             data += recv
         print('recieved', data[:1024])
+        conn.close()
         port, *data = loads(data)
         win.title('PyChat - user: %s - message from: %s' % (thisport, (addr[0], port)))
-        #if win10toast: win10toast.show_toast('PyChat', data[0].split('\n')[0])
+        _notification(data)
         lbl['state'] = NORMAL
         lbl.window_create(END, window=
             Label(lbl, text="message recieved\nfrom %s\nat %s"
@@ -82,8 +84,21 @@ def recievechat():
         break
     state = win.after(1000, recievechat)
 
+def _notification(data):
+    if win10toast:
+        name = 'PyChat'
+        value = data[0].split('\n')
+        if value[0][-1] == ':':
+            name = 'PyChat: %s' % value[0][:-1]
+            if len(value) > 1 and value[1][0] == '\t':
+                if value[1][1:] != lastmsg:
+                    message = value[1][1:]
+                else: return
+        else: message = value[0]
+        win10toast.show_toast(name, message, icon, threaded=True)
+
 def chat():
-    global state
+    global state, lastmsg
     while state is True: sleep(0.05)
     win.after_cancel(state)
     sockobj = socket(AF_INET, SOCK_STREAM)
@@ -106,6 +121,7 @@ def chat():
             else:
                 showerror('PyChat', "Sorry file %s's size is greater than 100MB (it's size is %sMB)"
                     % (os.path.split(value)[1], size // 1048576))
+        lastmsg = data[1]
         data = dumps(data)
         sockobj.send(data)
         txt.delete('1.0', END)
@@ -168,7 +184,7 @@ def options():
     vsb.pack(side=RIGHT, fill=Y)
     canvas.pack(side=LEFT, fill=BOTH, expand=True)
     frmwin = canvas.create_window((0, 0), window=frame, anchor=NW, width=canvas['width'])
-    frame .bind("<Configure>", lambda event, canvas=canvas: onFrameConfigure(canvas))
+    frame.bind("<Configure>", lambda event, canvas=canvas: onFrameConfigure(canvas))
     #canvas.bind("<Configure>", lambda event, canvas=canvas: onCanvasConfigure(canvas))
     scrollfrm.pack(side=TOP, expand=YES, fill=BOTH)
     vardict = dict(
@@ -187,6 +203,12 @@ def options():
 
 if __name__ == "__main__":
     win.title('PyChat - user: %s' % str(thisport))
+    icon = './pychat.ico'
+    if os.path.isfile(icon):
+        icon = os.path.abspath(icon)
+        win.iconbitmap(icon)
+    else:
+        icon = None
     lbl = ScrolledText(win, relief=SUNKEN, state=DISABLED,
         bg='SystemButtonFace', borderwidth=2, wrap=WORD)
     def entsend(event):
@@ -232,3 +254,4 @@ if __name__ == "__main__":
     state = False
     recievechat()
     win.mainloop()
+    dump(setdict, open('settings.pkl', 'wb'))
