@@ -3,7 +3,7 @@ import PIL, PIL.Image
 class SizeError(OverflowError): pass
 class NoData(BaseException): pass
 
-__version__ = '1.0.0 pre-1'
+__version__ = '1.0.0 (no docs)'
 __author__ = 'Gaming32'
 __credits__ = '\n'.join(['theglossy1'])
 __email__ = 'gaming32i64@gmail.com'
